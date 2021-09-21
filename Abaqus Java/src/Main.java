@@ -10,12 +10,16 @@ public class Main {
 
         HashMap<Integer, Double> hfl = new HashMap<>();
         HashMap<Integer, Double> nt11 = new HashMap<>();
-        ArrayList<Elemento> elementos = new ArrayList<>();
+        HashMap<Integer, Elemento> elementos = new HashMap<>();
+        ArrayList<Integer> elementosAire = new ArrayList<>();
+        ArrayList<Integer> nodosAire = new ArrayList<>();
         ArrayList<Nodo> nodos = new ArrayList<>();
 
         double topTemperature = 400;
         double bottomTemperature = 25;
         int nodeSetLimit = 20;
+
+        int spacing = 50;
 
         double maxQ = -999;
         double minQ = 999;
@@ -71,7 +75,7 @@ public class Main {
                 int j = Integer.parseInt(line[i].replace(",","").replace("(","").replace(")",""));
                 connectivy.add(j);
             }
-            elementos.add(new Elemento(label, connectivy));
+            elementos.put(label, new Elemento(label, connectivy));
         }
 
         System.out.println("elements size: "+ elementos.size());
@@ -87,9 +91,21 @@ public class Main {
 
         System.out.println("nodes size: "+ nodos.size());
 
+        scanner = new Scanner(new File("airelems.txt"));
+        while(scanner.hasNext()){
+            String[] line = scanner.nextLine().split(" ");
+            int elemento = Integer.parseInt(line[0]);
+            elementosAire.add(elemento);
+        }
+
+        for (Integer integer : elementosAire) {
+            Elemento elemento = elementos.get(integer);
+            nodosAire.addAll(elemento.getConnectivy());
+        }
+
         HashMap<Double, ArrayList<Nodo>> nodeSetList = new HashMap<>();
 
-        for(Elemento elemento : elementos){
+        for(Elemento elemento : elementos.values()){
             ArrayList<Integer> nodesElement = elemento.getConnectivy();
             Nodo nodoTake = nodos.get(nodesElement.get(0)-1);
             double coordx = nodoTake.getCoordx();
@@ -121,31 +137,63 @@ public class Main {
         System.out.println("max Y: "+maxY);
 
         int contador = 0;
+        double spaceOf = (maxX-minX)/spacing;
 
+        System.out.println("spaces of: "+spaceOf);
         System.out.println("number of sets found: "+nodeSetList.keySet().size());
 
-        ArrayList<Integer> values = new ArrayList<>();
-        for(Double coordX: nodeSetList.keySet()) {
-            ArrayList<Nodo> nodeSet = nodeSetList.get(coordX);
-            values.add(nodeSet.size());
+
+        HashMap<Space, ArrayList<Nodo>> nodeSetListNew = new HashMap<>();
+        double initx;
+        double endx;
+
+        for(int i=0; i<spacing; i++){
+            initx = minX + i*spaceOf;
+            endx = minX + (i+1)*spaceOf;
+
+            nodeSetListNew.put(new Space(initx, endx), new ArrayList<>());
         }
+
+        ArrayList<Integer> values = new ArrayList<>();
+        ArrayList<Space> spacesList = new ArrayList<>(nodeSetListNew.keySet());
+
+        for(Double coordX: nodeSetList.keySet()) {
+            for(int i=0; i<spacesList.size(); i++){
+                if(i == spacesList.size()-1){
+                    if(coordX >= spacesList.get(i).getInitx() && coordX <= spacesList.get(i).getFinalx()){
+                        nodeSetListNew.get(spacesList.get(i)).addAll(nodeSetList.get(coordX));
+                    }
+                }
+                else{
+                    if(coordX >= spacesList.get(i).getInitx() && coordX < spacesList.get(i).getFinalx()){
+                        nodeSetListNew.get(spacesList.get(i)).addAll(nodeSetList.get(coordX));
+                    }
+                }
+            }
+        }
+
+        for(Space spaceX: nodeSetListNew.keySet()) {
+            values.add(nodeSetListNew.get(spaceX).size());
+        }
+
+        //System.out.println(values);
+        System.out.println("max in sets: "+max(values));
+        System.out.println("min in sets: "+min(values));
+
         System.out.println("number recommended to set limit: mode: " + mode(values)+ ", median: "+median(values) + ", mean: "+mean(values));
         System.out.println("node sets selected: "+nodeSetLimit);
 
-        HashMap<Double, ArrayList<Elemento>> elementSetList = new HashMap<>();
-        //ArrayList<Double> coordinateX = new ArrayList<>();
-        //ArrayList<Double> coordinateY = new ArrayList<>();
-        HashMap<Double, Double> coordYSet = new HashMap<>();
-        HashMap<Double, Double> deltaTSet = new HashMap<>();
+        HashMap<Space, ArrayList<Elemento>> elementSetList = new HashMap<>();
+
+        HashMap<Space, Double> coordYSet = new HashMap<>();
+        HashMap<Space, Double> deltaTSet = new HashMap<>();
 
         ArrayList<Double> hflMagnitudes = new ArrayList<>();
         ArrayList<Double> hflMagnitudesY = new ArrayList<>();
         ArrayList<Double> hflMagnitudesYDT = new ArrayList<>();
-        //ArrayList<Integer> nodeSets = new ArrayList<>();
-        //ArrayList<Double> coordXPlot = new ArrayList<>();
 
-        for(Double coordX: nodeSetList.keySet()){
-            ArrayList<Nodo> nodeSet = nodeSetList.get(coordX);
+        for(Space space: nodeSetListNew.keySet()){
+            ArrayList<Nodo> nodeSet = nodeSetListNew.get(space);
             ArrayList<Integer> nodeSetIntegers = new ArrayList<>();
             for(Nodo value : nodeSet) {
                 nodeSetIntegers.add(value.getLabel());
@@ -154,64 +202,74 @@ public class Main {
             double minYI = 999;
             double maxYI = -999;
 
-            Nodo minNode = null;
-            Nodo maxNode = null;
-
             if(nodeSet.size() > nodeSetLimit){
+                double maxTemp = -9999;
+                double minTemp = 9999;
+
                 for(Nodo nodo: nodeSet){
                     double coordy = nodo.getCoordy();
                     if(coordy > maxYI){
                         maxYI = coordy;
-                        maxNode = nodo;
                     }
                     if(coordy < minYI){
                         minYI = coordy;
-                        minNode = nodo;
+                    }
+                    if(nt11.get(nodo.getLabel()) > maxTemp){
+                        maxTemp = nt11.get(nodo.getLabel());
+                    }
+                    if(nt11.get(nodo.getLabel()) < minTemp){
+                        minTemp = nt11.get(nodo.getLabel());
                     }
                 }
-
-                double maxTemp = nt11.get(maxNode.getLabel());
-                double minTemp = nt11.get(minNode.getLabel());
 
                 if((maxYI - minYI)*1000000 > 0){
                     if(maxTemp != minTemp){
                         contador++;
-                        for(Elemento elementoCoordX: elementos){
-                            if(elementoCoordX.getConnectivy().size() == 4){
-                                if(nodeSetIntegers.contains(elementoCoordX.getConnectivy().get(0)) ||
-                                        nodeSetIntegers.contains(elementoCoordX.getConnectivy().get(1)) ||
-                                        nodeSetIntegers.contains(elementoCoordX.getConnectivy().get(2)) ||
-                                        nodeSetIntegers.contains(elementoCoordX.getConnectivy().get(3))){
-
-                                    elementSetList.computeIfAbsent(coordX, k -> new ArrayList<>());
-
-                                    if(!elementSetList.get(coordX).contains(elementoCoordX)){
-                                        elementSetList.get(coordX).add(elementoCoordX);
-                                        //coordinateX.add(coordX*1000000);
-                                        //coordinateY.add((maxYI-minYI)*1000000);
-                                        coordYSet.put(coordX, maxYI-minYI);
-                                        deltaTSet.put(coordX, maxTemp-minTemp);
+                        for(Elemento elementoCoordX: elementos.values()){
+                            //if(!elementosAire.contains(elementoCoordX.getLabel())){
+                                boolean isin = false;
+                                for(int k=0; k<elementoCoordX.getConnectivy().size(); k++){
+                                    if (nodeSetIntegers.contains(elementoCoordX.getConnectivy().get(k)) && !nodosAire.contains(elementoCoordX.getConnectivy().get(k))) {
+                                        isin = true;
+                                        break;
                                     }
                                 }
-                            }
+                                if(isin){
+                                    elementSetList.computeIfAbsent(space, k -> new ArrayList<>());
+                                    if(!elementSetList.get(space).contains(elementoCoordX)){
+                                        elementSetList.get(space).add(elementoCoordX);
+                                        coordYSet.put(space, maxYI-minYI);
+                                        deltaTSet.put(space, maxTemp-minTemp);
+                                    }
+                                }
+                            //}
                         }
                     }
                 }
             }
         }
 
-        for(Double coordXElement: elementSetList.keySet()){
+        for(Space coordXElement: elementSetList.keySet()){
             ArrayList<Elemento> elementSet = elementSetList.get(coordXElement);
             int countHFL = 0;
+            int countPos = 0;
             double valueHFL = 0;
 
             for(Elemento elementInSet: elementSet){
                 double hflvalue = hfl.get(elementInSet.getLabel());
-                if(hflvalue < 0){
-                    countHFL++;
-                    valueHFL = valueHFL + hflvalue;
-                }
+                countHFL++;
+                valueHFL = valueHFL + hflvalue;
+
+//                if(hflvalue <= 0){
+//                    countHFL++;
+//                    valueHFL = valueHFL + hflvalue;
+//                }
+//                else{
+//                    countPos++;
+//                }
             }
+
+            //System.out.println("Positivos: "+countPos);
             valueHFL = valueHFL / countHFL;
             double hflMagnitude = -valueHFL;
             double hflMagnitudeY = -valueHFL * coordYSet.get(coordXElement);
@@ -220,8 +278,6 @@ public class Main {
             hflMagnitudes.add(hflMagnitude);
             hflMagnitudesY.add(hflMagnitudeY);
             hflMagnitudesYDT.add(hflMagnitudeYDT);
-            //nodeSets.add(countHFL);
-            //coordXPlot.add(coordXElement*1000000);
         }
 
         System.out.println("node sets processed: "+contador);
@@ -245,15 +301,34 @@ public class Main {
         }
         ky3 = ky3/(double)hflMagnitudesYDT.size();
 
-        System.out.println("Ky: " + ky);
-        System.out.println("Ky2: " + ky2);
-        System.out.println("Ky3: " + ky3);
+        //System.out.println("Ky: " + ky);
+        //System.out.println("Ky2: " + ky2);
+        System.out.println("Ky Method 3: " + ky3);
 
         long stopTime = System.currentTimeMillis();
         long elapsedTime = stopTime - startTime;
         System.out.println("time elapsed: " + (double)elapsedTime/1000 + "s");
     }
 
+    public static int min(ArrayList<Integer> a){
+        int min = 999;
+        for (Integer integer : a) {
+            if (min > integer) {
+                min = integer;
+            }
+        }
+        return min;
+    }
+
+    public static int max(ArrayList<Integer> a){
+        int max = -999;
+        for (Integer integer : a) {
+            if (max < integer) {
+                max = integer;
+            }
+        }
+        return max;
+    }
 
     public static int mode(ArrayList<Integer> a) {
         int maxValue = -1, maxCount = -1;

@@ -5,10 +5,20 @@ public class Nodo {
     private double coordx;
     private double coordy;
 
+    private double coordxMain;
+
     public Nodo(int label, double coordx, double coordy) {
         this.label = label;
         this.coordx = coordx;
         this.coordy = coordy;
+    }
+
+    public double getCoordxMain() {
+        return coordxMain;
+    }
+
+    public void setCoordxMain(double coordxMain) {
+        this.coordxMain = coordxMain;
     }
 
     public int getLabel() {
